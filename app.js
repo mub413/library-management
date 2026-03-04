@@ -1,93 +1,76 @@
-        const API_URL = "http://localhost:8080";
-        let isEditMode = false;
-        let selectedBookId = null;
+   const API = "http://localhost:8080";
+        let editId = null;
 
-        // ১. ডেটা লোড করা
         async function loadBooks() {
-            try {
-                const res = await fetch(`${API_URL}/books`);
-                const books = await res.json();
-                const tbody = document.getElementById('bookTableBody');
-                tbody.innerHTML = '';
-
-                books.forEach(book => {
-                    tbody.innerHTML += `
-                        <tr class="border-b hover:bg-gray-50 transition">
-                            <td class="p-3">${book.id}</td>
-                            <td class="p-3 font-semibold">${book.title}</td>
-                            <td class="p-3">${book.author}</td>
-                            <td class="p-3 text-center">
-                                <span class="px-3 py-1 rounded-full text-xs font-bold ${book.status === 'Available' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                                    ${book.status}
-                                </span>
-                            </td>
-                            <td class="p-3 text-center flex justify-center gap-2">
-                                <button onclick="toggleStatus(${book.id})" class="text-blue-600 hover:underline text-sm">Status</button>
-                                <button onclick="setupEdit(${book.id}, '${book.title}', '${book.author}')" class="text-amber-600 hover:underline text-sm">Edit</button>
-                                <button onclick="deleteBook(${book.id})" class="text-red-600 hover:underline text-sm">Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            } catch (err) {
-                console.error("Error loading books:", err);
-            }
+            const search = document.getElementById('searchBar').value;
+            const res = await fetch(`${API}/books?search=${search}`);
+            const books = await res.json();
+            
+            const tbody = document.getElementById('bookList');
+            tbody.innerHTML = books.map(b => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4 text-gray-500">#${b.id}</td>
+                    <td class="p-4 font-bold text-gray-800">${b.title}</td>
+                    <td class="p-4 text-gray-600">${b.author}</td>
+                    <td class="p-4 text-center">
+                        <span class="px-3 py-1 rounded-full text-xs font-bold ${b.status==='Available'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">
+                            ${b.status}
+                        </span>
+                    </td>
+                    <td class="p-4 text-center space-x-2">
+                        <button onclick="toggleStatus(${b.id})" class="text-indigo-600 hover:underline font-medium">Status</button>
+                        <button onclick="setEdit(${b.id}, '${b.title}', '${b.author}')" class="text-amber-600 hover:underline font-medium">Edit</button>
+                        <button onclick="deleteBook(${b.id})" class="text-red-500 hover:underline font-medium">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
-        // ২. সাবমিট হ্যান্ডলার (Add/Update)
         async function handleSubmit() {
             const title = document.getElementById('titleInp').value;
             const author = document.getElementById('authorInp').value;
+            if(!title || !author) return alert("দয়া করে সব ঘর পূরণ করুন!");
 
-            if (!title || !author) return alert("সব ঘর পূরণ করুন!");
+            const url = editId ? `${API}/edit-book` : `${API}/books`;
+            const method = editId ? 'PUT' : 'POST';
+            const body = editId ? { id: editId, title, author } : { title, author };
 
-            const payload = { title, author };
-            if (isEditMode) payload.id = selectedBookId;
-
-            const endpoint = isEditMode ? `${API_URL}/edit-book` : `${API_URL}/books`;
-            const method = isEditMode ? 'PUT' : 'POST';
-
-            await fetch(endpoint, {
+            await fetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(body)
             });
 
-            resetForm();
+            clearForm();
             loadBooks();
         }
 
-        // ৩. এডিট মোড সেটআপ
-        function setupEdit(id, title, author) {
+        function setEdit(id, title, author) {
+            editId = id;
             document.getElementById('titleInp').value = title;
             document.getElementById('authorInp').value = author;
-            isEditMode = true;
-            selectedBookId = id;
-            document.getElementById('mainBtn').innerText = "Update Book";
-            document.getElementById('mainBtn').classList.replace('bg-indigo-600', 'bg-amber-600');
+            document.getElementById('submitBtn').innerText = "Update Book";
+            document.getElementById('submitBtn').className = "bg-amber-500 text-white font-bold py-3 rounded-lg hover:bg-amber-600 transition";
         }
 
-        // ৪. অন্যান্য অ্যাকশন
         async function toggleStatus(id) {
-            await fetch(`${API_URL}/update-status?id=${id}`, { method: 'PATCH' });
+            await fetch(`${API}/update-status?id=${id}`, { method: 'PATCH' });
             loadBooks();
         }
 
         async function deleteBook(id) {
-            if (confirm('মুছে ফেলতে চান?')) {
-                await fetch(`${API_URL}/delete-book?id=${id}`, { method: 'DELETE' });
+            if(confirm('বইটি কি মুছে ফেলতে চান?')) {
+                await fetch(`${API}/delete-book?id=${id}`, { method: 'DELETE' });
                 loadBooks();
             }
         }
 
-        function resetForm() {
+        function clearForm() {
+            editId = null;
             document.getElementById('titleInp').value = '';
             document.getElementById('authorInp').value = '';
-            isEditMode = false;
-            selectedBookId = null;
-            document.getElementById('mainBtn').innerText = "Add Book";
-            document.getElementById('mainBtn').classList.replace('bg-amber-600', 'bg-indigo-600');
+            document.getElementById('submitBtn').innerText = "Add Book";
+            document.getElementById('submitBtn').className = "bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition";
         }
 
-        // Initial Load
         loadBooks();
